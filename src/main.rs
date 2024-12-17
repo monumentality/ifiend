@@ -22,7 +22,7 @@ fn main() {
     //Defines different commands and args
     let matches = Command::new("ifiend")
         .about("\nCheck YouTube without leaving the comfort of your terminal.")
-        .version("v0.1.1-alpha.\nBy https://github.com/monumentality")
+        .version("v0.1.2-alpha\nBy https://github.com/monumentality")
         .subcommand_required(true)
         .arg_required_else_help(true)
         /*
@@ -206,14 +206,19 @@ fn start_doing_the_deed_finally(settings: IfiendConfig) {
     );
     println!("'{}' to abort.", "a;".cyan());
     let urls_to_download = select_download_candidates(fetched_videos);
-    println!("urls gotten: {}", urls_to_download);
+    println!(
+        "\nPassing URLs to [{}]...\n",
+        settings.youtube_downloader.cyan()
+    );
     if !urls_to_download.is_empty() {
-        std::process::Command::new(&settings.youtube_downloader)
-            .arg(urls_to_download)
+        for url in urls_to_download.split_whitespace() {
+            std::process::Command::new(&settings.youtube_downloader)
+            .arg(url)
             .spawn().expect(format!("[{}] Couldn't pass the links to {} to download the videos.
                     Maybe {} is not installed? You can either install it, or change it to your downloader of choice in {}.
                     The program will pass it URLs as arguments as a string with URLs separated by spaces.",
-                    "ERROR".red(), settings.youtube_downloader.cyan(), settings.youtube_downloader.cyan(), "config.toml".cyan()).as_str());
+                    "ERROR".red(), settings.youtube_downloader.cyan(), settings.youtube_downloader.cyan(), "config.toml".cyan()).as_str()).wait().expect(format!("[{}] {} errored out.", "ERROR".red(), settings.youtube_downloader.cyan()).as_str());
+        }
     }
     if settings.generate_html && settings.cleanup_html {
         println!("\nCleaning up...");

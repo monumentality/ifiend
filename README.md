@@ -1,21 +1,21 @@
 # ifiend  
 
-**Check out the latest videos from your favorite channels in-terminal.**
+Check out the latest videos from your favorite channels in-terminal.
+
+Supports thumbnails in-terminal if you're using [kitty](https://github.com/kovidgoyal/kitty).
 
 ![videofetch](https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExMWN0NGV0dnR0aG9oNjFqanY3bW14dXR5eHc1N2VrbWo5MnhwbzV5MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/R3khsJ6oTW8UNu7cmC/giphy.gif)
 
-Supports thumbnails in-terminal if you're using [kitty terminal](https://github.com/kovidgoyal/kitty).
 
-**HTML file generation for those that don't use kitty terminal.**
+HTML file generation for those that don't use kitty.
 
 ![html](https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmxwam9udXNyM2Z1cHdjbjhld2xvbzRzZWwxdHhqMDN0bno2c3JpcSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/99d0uN46SSZxnSwBlB/giphy.gif)
 
-**Select and download videos via [yt-dlp](https://github.com/yt-dlp/yt-dlp) or downloader of your choice.**
+Select and download videos via [yt-dlp](https://github.com/yt-dlp/yt-dlp) or downloader of your choice.
 
 ![download](https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjN6OXJjcGloMWVmZXpuM2xweG9mZXkzcjJrbTAwY2loMHR0OWVrYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UKn0QzT7W1T2LGBpWS/giphy.gif)
 
-yt-dlp by default, can change in `~/.config/config.toml` 
-# installation
+# Installation
 
 ### Download pre-compiled
 
@@ -30,7 +30,7 @@ yt-dlp by default, can change in `~/.config/config.toml`
 5. Wait for ifiend to compile.
 6. Now you can run `cargo run --release --` or head straight to `target/release` directory and grab your ifiend executable from there.
 
-# usage
+# Usage
 
 **Get help:**
 ```bash

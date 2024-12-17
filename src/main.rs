@@ -22,7 +22,7 @@ fn main() {
     //Defines different commands and args
     let matches = Command::new("ifiend")
         .about("\nCheck YouTube without leaving the comfort of your terminal.")
-        .version("0.1.0 aka the first one. By github.com/monumentality")
+        .version("v0.1.1-alpha.\nBy https://github.com/monumentality")
         .subcommand_required(true)
         .arg_required_else_help(true)
         /*
@@ -206,6 +206,7 @@ fn start_doing_the_deed_finally(settings: IfiendConfig) {
     );
     println!("'{}' to abort.", "a;".cyan());
     let urls_to_download = select_download_candidates(fetched_videos);
+    println!("urls gotten: {}", urls_to_download);
     if !urls_to_download.is_empty() {
         std::process::Command::new(&settings.youtube_downloader)
             .arg(urls_to_download)
@@ -236,11 +237,15 @@ fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
     let mut output_urls: String = String::new();
     let mut called_it_quits: bool = false;
     loop {
+        output_urls = String::new();
+        let mut args_provided = 0;
+        let mut args_validated = 0;
         let mut input = String::new();
         std::io::stdin()
             .read_line(&mut input)
             .expect("Failed to read line.");
         let input_arguments = input.trim().split_whitespace();
+        args_provided = input_arguments.clone().count();
         println!("");
         for argument in input_arguments {
             match argument.parse::<u32>() {
@@ -255,6 +260,7 @@ fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
                                 argument.cyan(),
                                 video.title.green()
                             );
+                            args_validated += 1;
                             video_found = true;
                         }
                     }
@@ -277,6 +283,7 @@ fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
                                 argument.cyan(),
                                 video.title.green()
                             );
+                            args_validated += 1;
                             argument_is_valid = true;
                         }
                     }
@@ -287,11 +294,14 @@ fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
                             "is not a valid video ID, nor is it found in video titles. Try again."
                         );
                     }
-                    if !called_it_quits {
-                        select_download_candidates(videos.clone());
-                    }
                 }
             }
+        }
+        if !called_it_quits {
+            if args_validated == args_provided {
+                break;
+            }
+            continue;
         }
         break;
     }

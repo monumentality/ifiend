@@ -1,4 +1,5 @@
-# ifiend - Check YouTube without leaving the comfort of your terminal.
+# ifiend 
+### Check latest YouTube uploads without leaving the comfort of your terminal. 
 
 # /features
 ### Check out the latest videos from your favorite channels.

@@ -1,4 +1,4 @@
-# ifiend  
+# iFiend  
 
 Check out the latest videos from your favorite channels in-terminal.
 

@@ -8,7 +8,7 @@ pub mod html_constructor;
 pub mod ifiend_structs;
 use colored;
 use colored::*;
-use ifiend_structs::{IfiendConfig, IfiendVideo, ToIfiendChannel};
+use ifiend_structs::*;
 //
 //
 //Handles da flow and also arguments
@@ -18,11 +18,10 @@ fn main() {
     //Loads config into non-persistent settings
     //Also creates config if non-existent
     let mut settings = load_defaults();
-
     //Defines different commands and args
     let matches = Command::new("ifiend")
         .about("\nCheck YouTube without leaving the comfort of your terminal.")
-        .version("v0.1.2-alpha\nBy https://github.com/monumentality")
+        .version("v0.2.0-alpha\nBy https://github.com/monumentality")
         .subcommand_required(true)
         .arg_required_else_help(true)
         /*
@@ -148,13 +147,7 @@ fn parse_vpc_and_assign_it(
                             (
                                 "\n[ERROR] '{}' is not a valid number of videos to fetch.\nVideos-per-channel must be a positive number. Using default: [{}]",
                             provided_non_parsed_vpc.get_one::<String>("vpc").expect(
-            format!(
-                "[{}] Clap error. Couldn't get vpc arg into a string",
-                "ERROR".red()
-            )
-            .as_str(),
-        )
-.cyan(),
+            format!("[{}] Clap error. Couldn't get vpc arg into a string","ERROR".red()).as_str(),).cyan(),
                             settings.videos_per_channel.to_string().cyan()
                             );
             //Returns default
@@ -174,9 +167,9 @@ fn start_doing_the_deed_finally(settings: IfiendConfig) {
         "videos_per_channel".yellow(),
         settings.videos_per_channel.to_string().cyan()
     );
-    let fetched_videos;
+    let fetched_videos = fetch(&settings);
     if settings.generate_html {
-        fetched_videos = construct_html(settings.clone(), fetch(settings.clone()));
+        construct_html(&settings, &fetched_videos);
         println!("Open the generated html file? (y/n):");
 
         if get_yes_or_no_input() {
@@ -192,8 +185,6 @@ fn start_doing_the_deed_finally(settings: IfiendConfig) {
                 );
             });
         }
-    } else {
-        fetched_videos = fetch(settings.clone());
     }
 
     println!("");
@@ -205,24 +196,46 @@ fn start_doing_the_deed_finally(settings: IfiendConfig) {
         "1 5 Guitar 3 cookies GAMEPLAY 7".cyan()
     );
     println!("'{}' to abort.", "a;".cyan());
-    let urls_to_download = select_download_candidates(fetched_videos);
-    println!(
-        "\nPassing URLs to [{}]...\n",
-        settings.youtube_downloader.cyan()
-    );
-    if !urls_to_download.is_empty() {
-        for url in urls_to_download.split_whitespace() {
+    let mut selected_urls = select_download_candidates(&fetched_videos);
+    selected_urls = selected_urls.trim().to_string();
+    if !settings.never_play && !selected_urls.is_empty() {
+        println!(
+            "\nStream videos with [{}]? (y/n):",
+            settings.video_player.cyan()
+        );
+        if settings.always_yes_to_play || get_yes_or_no_input() {
+            //std::thread::spawn(move || {
+            let vec_of_urls: Vec<&str> = selected_urls.split_whitespace().collect();
+            std::process::Command::new(&settings.video_player)
+            .args(vec_of_urls)
+            .spawn()
+            .expect(format!("[{}] Couldn't pass the links to {} to play the videos.
+                    Maybe {} is not installed? You can either install it, or change it to your video player of choice in {}.
+                    The program will pass it URLs as arguments as a string with URLs separated by spaces.",
+                    "ERROR".red(), settings.video_player.cyan(), settings.video_player.cyan(), settings.config_path.cyan()).as_str()).wait().expect(format!("[{}] {} errored out.", "ERROR".red(), settings.video_player.cyan()).as_str());
+            //});
+        }
+    }
+    if !settings.never_download && !selected_urls.is_empty() {
+        println!("\nDownload these? (y/n):");
+        if settings.always_yes_to_download || get_yes_or_no_input() {
+            println!(
+                "\nPassing URLs to [{}]...\n",
+                settings.youtube_downloader.cyan()
+            );
+            let vec_of_urls: Vec<&str> = selected_urls.split_whitespace().collect();
             std::process::Command::new(&settings.youtube_downloader)
-            .arg(url)
+            .args(vec_of_urls)
             .spawn().expect(format!("[{}] Couldn't pass the links to {} to download the videos.
                     Maybe {} is not installed? You can either install it, or change it to your downloader of choice in {}.
                     The program will pass it URLs as arguments as a string with URLs separated by spaces.",
-                    "ERROR".red(), settings.youtube_downloader.cyan(), settings.youtube_downloader.cyan(), "config.toml".cyan()).as_str()).wait().expect(format!("[{}] {} errored out.", "ERROR".red(), settings.youtube_downloader.cyan()).as_str());
+                    "ERROR".red(), settings.youtube_downloader.cyan(), settings.youtube_downloader.cyan(), settings.config_path.cyan()).as_str()).wait().expect(format!("[{}] {} errored out.", "ERROR".red(), settings.youtube_downloader.cyan()).as_str());
         }
     }
-    if settings.generate_html && settings.cleanup_html {
-        println!("\nCleaning up...");
-        std::fs::remove_file(&settings.html_path).expect(
+
+    println!("\nCleaning up...");
+    for file in std::fs::read_dir(settings.cache_path).unwrap() {
+        std::fs::remove_file(file.expect("Nothing to clean up.").path()).expect(
             format!(
                 "[{}] Couldn't delete {}",
                 "ERROR".red(),
@@ -231,34 +244,53 @@ fn start_doing_the_deed_finally(settings: IfiendConfig) {
             .as_str(),
         );
     }
+    //}
 }
 //
 //
 //Asks for input and selects videos to download
 //
 //
-fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
-    let mut output_selected_int: Vec<u32> = Vec::new();
+fn select_download_candidates(videos: &Vec<IfiendVideo>) -> String {
     let mut output_urls: String = String::new();
     let mut called_it_quits: bool = false;
+
+    //Starts the loop that allows user to try again if their arg wasn't valid.
     loop {
+        //Clears output URLs in case some of the arguments pushed strings into it, but others were
+        //incorrect, so that it doesn't persist into the next cycle
         output_urls = String::new();
+
+        //Keeps count and then checks if all the provided args were valid
         let mut args_provided = 0;
         let mut args_validated = 0;
+
+        //Asks for input
         let mut input = String::new();
         std::io::stdin()
             .read_line(&mut input)
             .expect("Failed to read line.");
+
+        //Removes trailing spaces and newline
         let input_arguments = input.trim().split_whitespace();
+
+        //Counts provided arguments and stores the result for later
         args_provided = input_arguments.clone().count();
+
         println!("");
+
         for argument in input_arguments {
+            //Checks if an arg can be parsed as u32.
             match argument.parse::<u32>() {
+                //If it can be, that means that it's probably a video index
                 Ok(argument_as_u32) => {
+                    //It is not yet known if a video with that index exist, so no by default.
                     let mut video_found = false;
-                    output_selected_int.push(argument_as_u32);
-                    for video in &videos {
+                    //Run through video IDs to check if provided ID matches with anything
+                    for video in videos {
+                        //If ID matches
                         if argument_as_u32 == video.id {
+                            //Add corresponding video url and a space at the end
                             output_urls.push_str(format!("{} ", video.url).as_str());
                             println!(
                                 "Parsing '{}' as [{}]...",
@@ -271,15 +303,20 @@ fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
                     }
                     if !video_found {
                         println!("Video indexed '{}' does not exist.", argument.cyan());
-                        select_download_candidates(videos.clone());
+                        break;
                     }
                 }
+                //If an arg cannot be turned into u32, then it probably means that user made a
+                //typo, or wants to exit, or is attempting to pass a video title bit
                 Err(_) => {
+                    //Default to typo
                     let mut argument_is_valid: bool = false;
-                    for video in &videos {
+                    for video in videos {
+                        //"a;" means that user doesn't want to select any of the videos
                         if argument.contains("a;") {
                             called_it_quits = true;
                             argument_is_valid = true;
+                            //break the for loop and continue to exit
                             break;
                         } else if video.title.contains(argument) {
                             output_urls.push_str(format!("{} ", video.url).as_str());
@@ -302,10 +339,13 @@ fn select_download_candidates(videos: Vec<IfiendVideo>) -> String {
                 }
             }
         }
+        //If not asked to exit by user
         if !called_it_quits {
+            //Breaks the loop and returns output_urls if all args were valid
             if args_validated == args_provided {
                 break;
             }
+            //Starts new cycle if some args were invalid
             continue;
         }
         break;

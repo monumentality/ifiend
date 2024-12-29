@@ -9,23 +9,11 @@ use std::io::{BufWriter, Write};
 //Handles constructing html page with videos.
 //
 //
-pub fn construct_html(
-    settings: IfiendConfig,
-    fetched_videos: Vec<IfiendVideo>,
-) -> Vec<IfiendVideo> {
+pub fn construct_html(settings: &IfiendConfig, fetched_videos: &Vec<IfiendVideo>) {
     println!(
         "\nGenerating {} file with thumbnails...",
         settings.html_path.cyan()
     );
-    std::fs::create_dir_all(settings.cache_path).expect(
-        format!(
-            "[{}] Couldn't create '{}' directory in the cache directory",
-            "ERROR".red(),
-            "ifiend".cyan()
-        )
-        .as_str(),
-    );
-
     let html_filepath = settings.html_path.clone();
     let html_file = File::create(html_filepath.clone())
         .expect(format!("[ERROR] Couldn't create {} file.", html_filepath).as_str());
@@ -60,7 +48,7 @@ pub fn construct_html(
             )
             .as_str(),
         );
-    for video in &fetched_videos {
+    for video in fetched_videos {
         writer
             .write_all(
                 format!(
@@ -99,5 +87,4 @@ pub fn construct_html(
     writer
         .flush()
         .expect(format!("[ERROR] Couldn't write to {} file.", settings.html_path).as_str());
-    fetched_videos
 }

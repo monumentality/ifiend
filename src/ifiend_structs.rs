@@ -20,13 +20,26 @@ pub struct IfiendChannel {
     pub handle: String,
 }
 #[derive(Serialize, Deserialize, Clone)]
+pub struct IfiendTerminal {
+    pub supports_images: bool,
+    pub supports_sixel: bool,
+    pub is_kitty: bool,
+    pub is_wezterm: bool,
+}
+#[derive(Serialize, Deserialize, Clone)]
 pub struct IfiendConfig {
     pub generate_html: bool,
+    pub never_download: bool,
+    pub always_yes_to_download: bool,
+    pub never_play: bool,
+    pub always_yes_to_play: bool,
     pub cleanup_html: bool,
     pub cache_path: String,
     pub config_path: String,
     pub html_path: String,
     pub youtube_downloader: String,
+    pub video_player: String,
+    pub force_sixel_image_support: bool,
     pub channels: Vec<IfiendChannel>,
     pub videos_per_channel: u32,
 }

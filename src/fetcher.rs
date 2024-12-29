@@ -1,3 +1,4 @@
+use crate::defaults::terminal_properties_init;
 use crate::ifiend_structs;
 use crate::ifiend_structs::*;
 use colored;
@@ -8,15 +9,8 @@ use colored::*;
 //each video into a struct and collecting the resulting structs into a vector.
 //
 //
-pub fn fetch(settings: IfiendConfig) -> Vec<ifiend_structs::IfiendVideo> {
-    let mut terminal_is_kitty = false;
-    if std::env::consts::OS != "windows"
-        && std::env::var("TERM")
-            .expect("[ERROR] Couldn't read $TERM environment variable.")
-            .contains("kitty")
-    {
-        terminal_is_kitty = true;
-    }
+pub fn fetch(settings: &IfiendConfig) -> Vec<ifiend_structs::IfiendVideo> {
+    let terminal = terminal_properties_init(&settings);
     let mut videos: Vec<IfiendVideo> = Vec::new();
     println!("{}", "\nStarting browser...");
     let browser = match headless_chrome::Browser::default() {
@@ -39,7 +33,7 @@ pub fn fetch(settings: IfiendConfig) -> Vec<ifiend_structs::IfiendVideo> {
     }
     println!("");
     let mut video_id_iterator = 0;
-    for channel in settings.channels {
+    for channel in settings.channels.clone() {
         let tab = browser
             .new_tab()
             .expect("[ERROR] Couldn't open new browser tab.");
@@ -172,33 +166,73 @@ pub fn fetch(settings: IfiendConfig) -> Vec<ifiend_structs::IfiendVideo> {
                 thumbnail: thumbnail.clone(),
             };
 
-            println!("");
-            println!("[{}]", video_id_iterator.to_string().yellow());
-            println!("{}", channel.handle.cyan());
-            println!("[{}]", title.green());
-            //
-            //Puts thumbnails right into the terminal window if you're using Kitty terminal
-            //
-            if terminal_is_kitty {
-                let mut image = std::process::Command::new("kitten")
-                    .args(["icat", "--align", "left", &thumbnail.clone()])
-                    .spawn().expect("Couldn't spawn image. The program tries to spawn <kitten icat 'link to an image on the web'>. Check and see if it works on your system. Troubleshoot from there.");
-                image.wait().expect("[ERROR] image.wait() failed.");
-            }
-            println!(
-                "[{}] [{}] [{}]",
-                freshness.yellow(),
-                duration.yellow(),
-                views.yellow()
-            );
-            //println!("[{duration}]");
-            //println!("[{views}]");
-            println!("[{url}]");
-            println!("[{thumbnail}]\n");
+            //Prints data on a particular video that's just been fetched and determines how to go
+            //about displaying the thumbnail
+
+            fetch_info_printer(&channel, &video, &terminal, &settings);
 
             videos.push(video);
             video_id_iterator += 1;
         }
     }
     videos
+}
+
+fn fetch_info_printer(
+    channel: &IfiendChannel,
+    video: &IfiendVideo,
+    terminal: &IfiendTerminal,
+    settings: &IfiendConfig,
+) {
+    println!("");
+    println!("[{}]", video.id.to_string().yellow());
+    println!("{}", channel.handle.cyan());
+    println!("[{}]", video.title.green());
+    if terminal.supports_images {
+        if terminal.is_kitty {
+            let mut image = std::process::Command::new("kitten")
+                    .args(["icat", "--align", "left", &video.thumbnail.clone()])
+                    .spawn().expect("Couldn't spawn image. The program tries to spawn <kitten icat 'link to an image on the web'>. Check and see if it works on your system. Troubleshoot from there.");
+            image.wait().expect("[ERROR] image.wait() failed.");
+        }
+        if terminal.supports_sixel {
+            let thumbnail_img_path = format!(
+                "{}/thumbnail_for_video_id_{}.jpg",
+                settings.cache_path, video.id
+            );
+            let _ = std::process::Command::new("curl")
+                .args(["--output", thumbnail_img_path.as_str(), &video.thumbnail])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .expect(format!("[{}] Couldn't launch '{}'. Maybe it's not installed. It is needed to download the thumbnails to display them in terminal window if you're not using kitty terminal.", "ERROR".red(), "curl".cyan()).as_str())
+                .wait()
+                .expect(format!("[{}] Couldn't launch '{}'. Maybe it's not installed. It is needed to download the thumbnails to display them in terminal window if you're not using kitty terminal.", "ERROR".red(), "curl".cyan()).as_str());
+            if terminal.is_wezterm {
+                std::process::Command::new("wezterm")
+                    .args(["imgcat", &thumbnail_img_path])
+                    .spawn()
+                    .unwrap()
+                    .wait()
+                    .unwrap();
+            } else {
+                std::process::Command::new("img2sixel")
+                    .arg(thumbnail_img_path)
+                    .spawn()
+                    .expect(format!("[{}] Couldn't launch '{}'. Maybe it's not installed. It is needed to download the thumbnails to display them in terminal window if you're not using kitty terminal or wezterm.", "ERROR".red(), "img2sixel".cyan()).as_str())
+                    .wait()
+                    .expect(format!("[{}] Couldn't launch '{}'. Maybe it's not installed. It is needed to download the thumbnails to display them in terminal window if you're not using kitty terminal or wezterm.", "ERROR".red(), "img2sixel".cyan()).as_str());
+            }
+        }
+    }
+    println!(
+        "[{}] [{}] [{}]",
+        video.freshness.yellow(),
+        video.duration.yellow(),
+        video.views.yellow()
+    );
+    //println!("[{duration}]");
+    //println!("[{views}]");
+    println!("[{}]", video.url);
+    println!("[{}]\n", video.thumbnail);
 }
